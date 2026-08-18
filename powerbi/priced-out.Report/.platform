@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "priced-out"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "b295e604-54bf-40b0-8e11-d9675fbc22e0"
+  }
+}

@@ -1,0 +1,19 @@
+# ── Power BI (.pbip) ──────────────────────────────────────────
+# Cache de dados e preferencias locais: nunca versionar.
+# O cache.abf carrega os DADOS importados e chega facil a centenas de MB.
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+**/.pbi/*.cache.abf
+
+# .pbix binario: se algum dia salvar um, nao deixar subir sem querer
+*.pbix
+
+# ── Dados baixados ────────────────────────────────────────────
+# A base vem da API do OECD a cada refresh; nao precisa versionar CSV.
+data/
+*.csv
+
+# ── Sistema ───────────────────────────────────────────────────
+~$*
+Thumbs.db
+.DS_Store
