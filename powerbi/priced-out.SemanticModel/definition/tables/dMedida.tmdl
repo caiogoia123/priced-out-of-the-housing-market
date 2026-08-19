@@ -1,0 +1,71 @@
+/// Dimensao de medida. 7 indicadores em 3 familias com bases de comparacao diferentes.
+table dMedida
+	lineageTag: 378ebaa2-9a59-41ce-8776-0ab3ed800db8
+
+	column CodMedida
+		dataType: string
+		isHidden
+		lineageTag: 6a8ae5d2-1b4e-450c-94f7-298fa520daa8
+		summarizeBy: none
+		sourceColumn: CodMedida
+
+	column Medida
+		dataType: string
+		lineageTag: 62437b8e-1d5e-4003-b2a9-4e2ef7c10ddf
+		summarizeBy: none
+		sourceColumn: Medida
+		sortByColumn: Ordem
+
+	/// Price e Indexed ratio usam 2015=100; Standardised ratio usa a media historica do pais=100. Nunca misturar familias no mesmo visual.
+	column Familia
+		dataType: string
+		lineageTag: c68cda36-f90f-4f09-a599-a26a15443edf
+		summarizeBy: none
+		sourceColumn: Familia
+
+	column Unidade
+		dataType: string
+		lineageTag: 4bf7de94-750b-4571-9074-c0bb76fefa4c
+		summarizeBy: none
+		sourceColumn: Unidade
+
+	column BaseComparacao
+		dataType: string
+		lineageTag: 3e171f29-b79f-4d73-a9d4-3ea82c6417ab
+		summarizeBy: none
+		sourceColumn: BaseComparacao
+
+	column Ordem
+		dataType: int64
+		isHidden
+		formatString: 0
+		lineageTag: b17a0a1e-d6c1-4367-9f8d-31756605df44
+		summarizeBy: none
+		sourceColumn: Ordem
+
+	partition dMedida = m
+		mode: import
+		source =
+				let
+				    // Tabela codificada: 7 linhas fixas, nao baixa nada da API.
+				    // ATENCAO as familias: Price e Indexed ratio usam 2015 = 100;
+				    // Standardised ratio usa a media historica do proprio pais = 100.
+				    // Sao unidades incompativeis - nunca somar ou mediar entre familias.
+				    Fonte = #table(
+				        type table [
+				            CodMedida = text, Medida = text, Familia = text,
+				            Unidade = text, BaseComparacao = text, Ordem = Int64.Type
+				        ],
+				        {
+				            {"HPI", "Nominal house price indices", "Price", "Index", "2015 = 100", 1},
+				            {"RHP", "Real house price indices", "Price", "Index", "2015 = 100", 2},
+				            {"RPI", "Rent prices", "Price", "Index", "2015 = 100", 3},
+				            {"HPI_YDH", "Price to income ratio", "Indexed ratio", "Index", "2015 = 100", 4},
+				            {"HPI_RPI", "Price to rent ratio", "Indexed ratio", "Index", "2015 = 100", 5},
+				            {"HPI_YDH_AVG", "Standardised price-income ratio", "Standardised ratio", "% of long-term average", "Long-term average = 100", 6},
+				            {"HPI_RPI_AVG", "Standardised price-rent ratio", "Standardised ratio", "% of long-term average", "Long-term average = 100", 7}
+				        }
+				    )
+				in
+				    Fonte
+

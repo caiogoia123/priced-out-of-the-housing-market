@@ -1,0 +1,73 @@
+/// Base anual do OECD House Prices. Consulta nao carregada: alimenta fOECD e dPais.
+expression OECD_Anual =
+		let
+		    // ============================================================
+		    // Base anual do OECD House Prices - consulta NAO carregada.
+		    // Alimenta fOECD e dPais.
+		    //
+		    // O ".A.." na key path SDMX filtra frequencia ANUAL na propria
+		    // fonte: 3,0 MB em vez de 15,5 MB, e torna fisicamente impossivel
+		    // um registro trimestral entrar no modelo.
+		    // ============================================================
+		    Url = "https://sdmx.oecd.org/public/rest/data/"
+		        & "OECD.ECO.MPD,DSD_AN_HOUSE_PRICES@DF_HOUSE_PRICES,1.0/"
+		        & ".A..?startPeriod=1970&format=csvfilewithlabels",
+		
+		    // Csv.Document sem Columns fixo: numero fixo cortaria dados em
+		    // silencio se o OECD acrescentar coluna.
+		    Bruto = Csv.Document(
+		        Web.Contents(Url),
+		        [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
+		    ),
+		    Cabecalho = Table.PromoteHeaders(Bruto, [PromoteAllScalars = true]),
+		
+		    // O CSV traz "MEASURE" (codigo) e "Measure" (rotulo). Os dois colidem
+		    // no modelo tabular, que e case-insensitive. Aqui so o codigo entra -
+		    // o rotulo legivel vive na dMedida - entao a colisao nao chega a existir.
+		    Colunas = Table.SelectColumns(
+		        Cabecalho,
+		        {"REF_AREA", "Reference area", "MEASURE", "TIME_PERIOD", "OBS_VALUE"}
+		    ),
+		
+		    Renomeado = Table.RenameColumns(
+		        Colunas,
+		        {
+		            {"REF_AREA", "CodPais"}, {"Reference area", "Pais"},
+		            {"MEASURE", "CodMedida"}, {"TIME_PERIOD", "Periodo"},
+		            {"OBS_VALUE", "Valor"}
+		        }
+		    ),
+		
+		    // No anual o TIME_PERIOD ja vem "2024", sem sufixo de trimestre.
+		    ComAno = Table.AddColumn(
+		        Renomeado, "Ano",
+		        each try Number.From([Periodo], "en-US") otherwise null,
+		        Int64.Type
+		    ),
+		
+		    // OECD e Euro area nao sao paises: entram marcados para nunca virarem
+		    // barra num ranking de paises.
+		    Agregados = {"OECD", "Euro area", "Euro area (17 countries)", "European Union"},
+		    ComTipo = Table.AddColumn(
+		        ComAno, "TipoArea",
+		        each if List.Contains(Agregados, [Pais]) then "Agregado" else "Pais",
+		        type text
+		    ),
+		
+		    // "en-US" e obrigatorio: o dado vem com ponto decimal e o modelo e pt-BR.
+		    // Sem a cultura explicita 99,66 vira 99.668.920.498.056 - e nao da erro.
+		    // type number, nunca Int64: Int64 arredondaria 114,8 para 115.
+		    Tipado = Table.TransformColumnTypes(
+		        ComTipo,
+		        {
+		            {"Valor", type number}, {"CodPais", type text},
+		            {"Pais", type text}, {"CodMedida", type text}
+		        },
+		        "en-US"
+		    ),
+		
+		    Final = Table.SelectRows(Tipado, each [Valor] <> null and [Ano] <> null)
+		in
+		    Final
+	lineageTag: 38efd2e4-68f8-4d22-b0b7-58a7be4f0c7d
+

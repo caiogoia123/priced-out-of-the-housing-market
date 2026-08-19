@@ -1,0 +1,49 @@
+/// Fato. Granularidade: 1 linha por pais x medida x ano. Somente dados anuais.
+table fOECD
+	lineageTag: 093e1422-dff9-4951-89ac-2ace0f0ac96e
+
+	/// Chave para dPais.
+	column CodPais
+		dataType: string
+		isHidden
+		lineageTag: d91279b4-dc49-4da5-a497-4953db15a6ae
+		summarizeBy: none
+		sourceColumn: CodPais
+
+	/// Chave para dMedida.
+	column CodMedida
+		dataType: string
+		isHidden
+		lineageTag: 7fdc89da-3cac-4d61-a6ae-459834fed24a
+		summarizeBy: none
+		sourceColumn: CodMedida
+
+	/// Dimensao degenerada. Serie anual continua 1970-2025, sem lacunas.
+	column Ano
+		dataType: int64
+		formatString: 0
+		lineageTag: 1b730cb1-d074-404a-b5aa-bea1ad2a5185
+		summarizeBy: none
+		sourceColumn: Ano
+
+	/// Indice. OCULTO de proposito: acesso apenas pelas medidas DAX, porque somar indice nao tem significado.
+	column Valor
+		dataType: double
+		isHidden
+		formatString: #,##0.0
+		lineageTag: f4926dcc-d9fd-429e-a657-ee5b1cd6d3aa
+		summarizeBy: none
+		sourceColumn: Valor
+
+	partition fOECD = m
+		mode: import
+		source =
+				let
+				    // Fato na granularidade pais x medida x ano.
+				    // A frequencia nao entra: a base ja vem filtrada em ANUAL na fonte,
+				    // entao nao existe coluna que permita misturar anual com trimestral.
+				    Fonte = OECD_Anual,
+				    Fato = Table.SelectColumns(Fonte, {"CodPais", "CodMedida", "Ano", "Valor"})
+				in
+				    Fato
+

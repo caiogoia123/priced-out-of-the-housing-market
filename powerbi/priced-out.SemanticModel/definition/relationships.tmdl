@@ -1,0 +1,8 @@
+relationship dPais_fOECD
+	fromColumn: fOECD.CodPais
+	toColumn: dPais.CodPais
+
+relationship dMedida_fOECD
+	fromColumn: fOECD.CodMedida
+	toColumn: dMedida.CodMedida
+
