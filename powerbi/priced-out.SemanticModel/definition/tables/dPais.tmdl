@@ -1,0 +1,92 @@
+/// Dimensao de pais. 48 paises + 3 agregados (OECD, Euro area).
+table dPais
+	lineageTag: e95a9866-2813-467f-960c-5baf7ce01fba
+
+	/// Chave ISO-3 (agregados usam EA, EA17, OECD).
+	column CodPais
+		dataType: string
+		isHidden
+		lineageTag: 7138e708-9c9c-4ae2-b935-20b00cf0e2c6
+		summarizeBy: none
+		sourceColumn: CodPais
+
+	column Pais
+		dataType: string
+		lineageTag: 9d04c420-59eb-48a4-9ead-3f69854bf83b
+		summarizeBy: none
+		sourceColumn: Pais
+
+	/// Pais (48) ou Agregado (3). Agregados nunca devem virar barra num ranking.
+	column TipoArea
+		dataType: string
+		lineageTag: 5e69f1a3-4b56-4cde-9f1c-206357bd4650
+		summarizeBy: none
+		sourceColumn: TipoArea
+
+	/// Enriquecimento proprio, nao vem do OECD.
+	column Regiao
+		dataType: string
+		lineageTag: 7519a049-1a82-4514-9704-3962ac36605c
+		summarizeBy: none
+		sourceColumn: Regiao
+
+	partition dPais = m
+		mode: import
+		source =
+				let
+				    Fonte = OECD_Anual,
+				    Distintos = Table.Distinct(
+				        Table.SelectColumns(Fonte, {"CodPais", "Pais", "TipoArea"})
+				    ),
+				
+				    // Regiao nao existe na fonte OECD - e enriquecimento nosso.
+				    // Mexico entra em Latin America (nao North America) e Turkiye em
+				    // Middle East & Africa: sao escolhas de agrupamento, nao fatos.
+				    Regioes = #table(
+				        type table [CodPais = text, Regiao = text],
+				        {
+				            {"AUT", "Western Europe"}, {"BEL", "Western Europe"},
+				            {"CHE", "Western Europe"}, {"DEU", "Western Europe"},
+				            {"FRA", "Western Europe"}, {"GBR", "Western Europe"},
+				            {"IRL", "Western Europe"}, {"LUX", "Western Europe"},
+				            {"NLD", "Western Europe"},
+				            {"DNK", "Northern Europe"}, {"FIN", "Northern Europe"},
+				            {"ISL", "Northern Europe"}, {"NOR", "Northern Europe"},
+				            {"SWE", "Northern Europe"},
+				            {"ESP", "Southern Europe"}, {"GRC", "Southern Europe"},
+				            {"ITA", "Southern Europe"}, {"PRT", "Southern Europe"},
+				            {"BGR", "Central & Eastern Europe"}, {"CZE", "Central & Eastern Europe"},
+				            {"EST", "Central & Eastern Europe"}, {"HRV", "Central & Eastern Europe"},
+				            {"HUN", "Central & Eastern Europe"}, {"LTU", "Central & Eastern Europe"},
+				            {"LVA", "Central & Eastern Europe"}, {"POL", "Central & Eastern Europe"},
+				            {"ROU", "Central & Eastern Europe"}, {"RUS", "Central & Eastern Europe"},
+				            {"SVK", "Central & Eastern Europe"}, {"SVN", "Central & Eastern Europe"},
+				            {"CAN", "North America"}, {"USA", "North America"},
+				            {"BRA", "Latin America"}, {"CHL", "Latin America"},
+				            {"COL", "Latin America"}, {"CRI", "Latin America"},
+				            {"MEX", "Latin America"},
+				            {"AUS", "Asia-Pacific"}, {"CHN", "Asia-Pacific"},
+				            {"IDN", "Asia-Pacific"}, {"IND", "Asia-Pacific"},
+				            {"JPN", "Asia-Pacific"}, {"KOR", "Asia-Pacific"},
+				            {"NZL", "Asia-Pacific"},
+				            {"ISR", "Middle East & Africa"}, {"SAU", "Middle East & Africa"},
+				            {"TUR", "Middle East & Africa"}, {"ZAF", "Middle East & Africa"},
+				            {"EA", "Aggregate"}, {"EA17", "Aggregate"}, {"OECD", "Aggregate"}
+				        }
+				    ),
+				
+				    Juntado = Table.NestedJoin(
+				        Distintos, {"CodPais"}, Regioes, {"CodPais"}, "reg", JoinKind.LeftOuter
+				    ),
+				    Expandido = Table.ExpandTableColumn(Juntado, "reg", {"Regiao"}, {"Regiao"}),
+				
+				    // Se o OECD incluir um pais novo, ele aparece como Unclassified em vez
+				    // de sumir - o erro fica visivel no relatorio, nao silencioso.
+				    SemNulo = Table.ReplaceValue(
+				        Expandido, null, "Unclassified", Replacer.ReplaceValue, {"Regiao"}
+				    ),
+				    Tipado = Table.TransformColumnTypes(SemNulo, {{"Regiao", type text}}),
+				    Ordenado = Table.Sort(Tipado, {{"Pais", Order.Ascending}})
+				in
+				    Ordenado
+

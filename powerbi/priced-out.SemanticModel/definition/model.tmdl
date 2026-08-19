@@ -7,13 +7,14 @@ model Model
 		legacyRedirects
 		returnErrorValuesAsNull
 
-annotation __PBI_TimeIntelligenceEnabled = 0
+annotation PBI_QueryOrder = ["OECD_Anual","fOECD","dPais","dMedida"]
 
-annotation PBI_QueryOrder = ["OECD"]
+annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
 
-annotation PBI_ProTooling = ["DevMode"]
-
-ref table OECD
+ref table fOECD
+ref table dPais
+ref table dMedida
+ref table _Medidas
 
 ref cultureInfo pt-BR
 

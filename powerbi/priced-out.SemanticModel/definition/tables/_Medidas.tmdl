@@ -1,0 +1,131 @@
+/// Tabela container das medidas DAX. Nao contem dado.
+table _Medidas
+	lineageTag: b194da19-2eb6-40de-8986-a57a86a3f82b
+
+	/// Valor do indicador no contexto. Vazio se houver mais de uma medida em contexto.
+	measure Índice =
+			-- Valor do indicador no contexto.
+			-- A guarda HASONEVALUE e deliberada: sem um unico CodMedida no contexto
+			-- a medida devolve vazio em vez de misturar familias com bases diferentes
+			-- (indice 2015=100 com % da media historica). Num small multiple quebrado
+			-- por medida cada painel tem uma so, entao funciona normalmente.
+			IF(
+			    HASONEVALUE( dMedida[CodMedida] ),
+			    AVERAGE( fOECD[Valor] )
+			)
+		formatString: #,##0.0
+		displayFolder: 01 Núcleo
+		lineageTag: 162536ce-6cdf-4e9d-82b6-45ff97055157
+
+	/// Distancia da base de comparacao da medida, em pontos percentuais.
+	measure 'Desvio vs Base (p.p.)' =
+			-- Funciona nas duas familias porque a base e sempre 100:
+			--   Price / Indexed ratio  -> variacao % desde 2015
+			--   Standardised ratio     -> p.p. acima/abaixo da media historica do pais
+			VAR v = [Índice]
+			RETURN
+			    IF( NOT ISBLANK( v ), v - 100 )
+		formatString: +#,##0.0;-#,##0.0;0.0
+		displayFolder: 01 Núcleo
+		lineageTag: 71dd6288-b695-4c59-84c3-a4efdc8bbeb3
+
+	/// Valor travado em 2025, independente do filtro de ano.
+	measure 'Índice Ano-Base' =
+			-- Ano-base do projeto: 2025.
+			-- REMOVEFILTERS mira a coluna da propria fato, que e onde o Ano vive;
+			-- limpar a dimensao nao adiantaria porque nao existe dCalendario.
+			CALCULATE(
+			    [Índice],
+			    REMOVEFILTERS( fOECD[Ano] ),
+			    fOECD[Ano] = 2025
+			)
+		formatString: #,##0.0
+		displayFolder: 01 Núcleo
+		lineageTag: ccf08f94-1573-4487-a502-6ab5c09a5b0e
+
+	/// Paises com observacao no contexto. Agregados nao contam.
+	measure 'Países com Dado' =
+			-- Exclui os 3 agregados (OECD, Euro area, Euro area 17).
+			CALCULATE(
+			    DISTINCTCOUNT( fOECD[CodPais] ),
+			    dPais[TipoArea] = "Pais"
+			)
+		formatString: 0
+		displayFolder: 02 Cobertura
+		lineageTag: 01036cea-e3ea-4d75-97ba-6fc8c9ab8efb
+
+	/// Paises com indice acima de 100 no contexto.
+	measure 'Países Acima da Base' =
+			-- Paises acima de 100. Nas razoes indexadas = piorou desde 2015;
+			-- nas padronizadas = esta acima da propria media historica.
+			COUNTROWS(
+			    FILTER(
+			        CALCULATETABLE(
+			            VALUES( dPais[CodPais] ),
+			            dPais[TipoArea] = "Pais"
+			        ),
+			        [Índice] > 100
+			    )
+			)
+		formatString: 0
+		displayFolder: 02 Cobertura
+		lineageTag: 5415e7af-5b01-4885-875e-e280565ac50d
+
+	/// Paises com indice igual ou abaixo de 100 no contexto.
+	measure 'Países Abaixo da Base' =
+			-- Complemento de [Paises Acima da Base]. Um pais exatamente em 100
+			-- (o caso de 2015 nas medidas indexadas) cai aqui.
+			VAR total = [Países com Dado]
+			VAR acima = [Países Acima da Base]
+			RETURN
+			    IF( NOT ISBLANK( total ), total - acima )
+		formatString: 0
+		displayFolder: 02 Cobertura
+		lineageTag: 3f8dde54-b9bf-47ed-a2c1-7f0b70b577bb
+
+	/// Proporcao de paises acima da base.
+	measure '% Países Acima' = DIVIDE( [Países Acima da Base], [Países com Dado] )
+		formatString: 0%
+		displayFolder: 02 Cobertura
+		lineageTag: 159df804-8e5d-47ee-866b-1e06ade77d3e
+
+	/// Posicao do pais por [Indice], do maior para o menor. Ignora agregados e respeita filtro de regiao.
+	measure 'Ranking País' =
+			-- O RANKX ingenuo empatava tudo em 1: o REMOVEFILTERS montava o universo
+			-- com 48 paises, mas [Indice] continuava sendo avaliado com o filtro do pais
+			-- da linha, entao 47 deles vinham BLANK. A correcao e avaliar a tabela de
+			-- valores JA dentro do escopo sem o filtro de pais.
+			-- REMOVEFILTERS mira so as colunas de identidade: um slicer de Regiao
+			-- continua valendo, e o ranking passa a ser dentro da regiao.
+			VAR valorAtual = [Índice]
+			VAR universoComValor =
+			    CALCULATETABLE(
+			        ADDCOLUMNS(
+			            CALCULATETABLE(
+			                VALUES( dPais[CodPais] ),
+			                dPais[TipoArea] = "Pais"
+			            ),
+			            "@v", [Índice]
+			        ),
+			        REMOVEFILTERS( dPais[CodPais], dPais[Pais] )
+			    )
+			RETURN
+			    IF(
+			        HASONEVALUE( dPais[CodPais] ) && NOT ISBLANK( valorAtual ),
+			        COUNTROWS( FILTER( universoComValor, [@v] > valorAtual ) ) + 1
+			    )
+		formatString: 0
+		displayFolder: 03 Apoio a visual
+		lineageTag: b5882de4-22df-4d8b-9094-3584ceae809a
+
+	column Value
+		isHidden
+		lineageTag: 2e2b189b-a39c-4b5a-81df-59decb00c59c
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Value]
+
+	partition _Medidas = calculated
+		mode: import
+		source = {BLANK()}
+
